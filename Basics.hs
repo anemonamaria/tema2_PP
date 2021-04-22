@@ -353,8 +353,12 @@ moveTargets game = undefined
     Parametrul Target reprezintă Targetul pentru care se face verificarea.
 -}
 isTargetKilled :: Position -> Target -> Bool
-isTargetKilled = undefined
-
+isTargetKilled pos target
+	| fst pos == fst (position target) + 1 && snd pos == snd (position target) = True
+	| fst pos == fst (position target) - 1 && snd pos == snd (position target) = True
+	| fst pos == fst (position target) && snd pos == snd (position target) + 1 = True
+	| fst pos == fst (position target) && snd pos == snd (position target) - 1 = True
+	| otherwise = False
 
 {-
     *** TODO ***
