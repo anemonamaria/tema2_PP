@@ -261,11 +261,14 @@ attemptMove pos game
 
 go :: Position -> Game -> Position -> Target
 go (x, y) game (nx, ny)
-	| x + nx < 0 || x + nx > (dim_lines game) || y + nx < 0 || y + nx > (dim_columns game) = head [target | target <- targets game, position target == (x, y)]
+	| x + nx < 0 || x + nx > (dim_lines game) || y + nx < 0 || y + nx > (dim_columns game) = head [target | target <- targets game,
+	 position target == (x, y)]
 	| findObstacles (x + nx, y + ny) game == True = head [target | target <- targets game, position target == (x, y)]
 	| findTarget (x + nx, y + ny) game == True = head [target | target <- targets game, position target == (x, y)]
 	| findHunter (x + nx, y + ny) game == True = head [target | target <- targets game, position target == (x, y)]
-	| findGateway (x + nx, y + ny) game == True =  Target (head (foldl (\acc var -> if (x + nx, y + ny) == fst var then (snd var) : acc else if (x + nx, y + ny) == snd var then (fst var) : acc else acc) [] (gateways game))) (behavior (head [target | target <- targets game, position target == (x, y)]))
+	| findGateway (x + nx, y + ny) game == True =  Target (head (foldl (\acc var -> if (x + nx, y + ny) == fst var then (snd var) :
+	 acc else if (x + nx, y + ny) == snd var then (fst var) : acc else acc) [] (gateways game))) (behavior (head [target | target <-
+	  targets game, position target == (x, y)]))
 	| length [ target | target <- targets game, position target == (x, y)] == 0 = head [target | target <- targets game, position target == (x, y)]
 	| length [ target | target <- targets game, position target == (x, y)] == 1 = Target (x + nx, y + ny) (behavior (head [target | target <- targets game, position target == (x, y)]))
 
@@ -324,8 +327,26 @@ goSouth position game = go position game (1, 0)
 -}
 bounce :: Int -> Behavior
 bounce param position game
-	| param == 1 = Target ((fst position - 1), snd position) (bounce (-1))
-	| otherwise = Target ((fst position + 1), snd position) (bounce 1)
+	| param == 1 && findGateway ((fst position + 1), snd position) game && findObstacles (head (foldl (\acc var -> if ((fst position + 1), snd position) ==
+		 fst var then (snd var) : acc else if ((fst position + 1), snd position) == snd var then (fst var) : acc else acc) [] (gateways game))) game =
+			  Target (fst (head (foldl (\acc var -> if ((fst position + 1), snd position) == fst var then (snd var) : acc else
+				   if ((fst position + 1), snd position) == snd var then (fst var) : acc else acc) [] (gateways game))) - 2, snd (head (foldl (\acc var ->
+					   if ((fst position + 1), snd position) == fst var then (snd var) : acc else if ((fst position + 1), snd position) == snd var
+						    then (fst var) : acc else acc) [] (gateways game)))) (bounce (-1))
+ 	| param == (-1) && findGateway ((fst position - 1), snd position) game && findObstacles (head (foldl (\acc var -> if ((fst position - 1), snd position)
+		 == fst var then (snd var) : acc else if ((fst position - 1), snd position) == snd var then (fst var) : acc else acc) [] (gateways game))) game =
+			 Target (fst (head (foldl (\acc var -> if ((fst position - 1), snd position) == fst var then (snd var) : acc else if ((fst position - 1),
+				  snd position) == snd var then (fst var) : acc else acc) [] (gateways game))) + 2, snd (head (foldl (\acc var -> if ((fst position - 1),
+					   snd position) == fst var then (snd var) : acc else if ((fst position - 1), snd position) == snd var then (fst var) : acc else acc)
+					   [] (gateways game)))) (bounce 1)
+	| param == 1 && findGateway ((fst position + 1), snd position) game = Target (head (foldl (\acc var -> if ((fst position + 1), snd position) == fst var
+		then (snd var) : acc else if ((fst position + 1), snd position) == snd var then (fst var) : acc else acc) [] (gateways game))) (bounce 1)
+	| param == (-1) && findGateway ((fst position - 1), snd position) game = Target (head (foldl (\acc var -> if ((fst position - 1), snd position) == fst var
+		then (snd var) : acc else if ((fst position - 1), snd position) == snd var then (fst var) : acc else acc) [] (gateways game))) (bounce (-1))
+	| param == 1 && findObstacles ((fst position + 1), snd position) game = Target ((fst position - 1), snd position) (bounce (-1))
+	| param == (-1) && findObstacles ((fst position - 1), snd position) game = Target ((fst position + 1), snd position) (bounce 1)
+	| param == 1 = Target ((fst position + 1), snd position) (bounce 1)
+	| otherwise = Target ((fst position - 1), snd position) (bounce (-1))
 
 {-
     *** TODO ***
@@ -374,8 +395,24 @@ isTargetKilled pos target
     Dubla verificare a anihilării Target-urilor, în pașii 2 și 4, îi oferă Hunter-ului
     un avantaj în prinderea lor.
 -}
+goHun :: Position -> Game -> Position -> Position
+goHun (x, y) game (nx, ny)
+	| x + nx < 0 || x + nx > (dim_lines game) || y + nx < 0 || y + nx > (dim_columns game) = hunter game
+	| findObstacles (x + nx, y + ny) game == True = hunter game
+	| findTarget (x + nx, y + ny) game == True = hunter game
+	| findHunter (x + nx, y + ny) game == True = hunter game
+	| findGateway (x + nx, y + ny) game == True =  (head (foldl (\acc var -> if (x + nx, y + ny) == fst var then (snd var) : acc else if (x + nx, y + ny) == snd var then (fst var) : acc else acc) [] (gateways game)))
+	| otherwise = (x + nx, y + ny)
+
 advanceGameState :: Direction -> Bool -> Game -> Game
-advanceGameState = undefined
+advanceGameState = undefined -- dir bo game = game
+	-- | bo == False && dir == North = game {hunter = goHun (hunter game) game (fst (hunter game) - 1, snd (hunter game))}
+	-- | bo == False && dir == South = game {hunter = goHun (hunter game) game (fst (hunter game) + 1, snd (hunter game))}
+	-- | bo == False && dir == West = game {hunter = goHun (hunter game) game (fst (hunter game), snd (hunter game) - 1)}
+	-- | bo == False && dir == East = game {hunter = goHun (hunter game) game (fst (hunter game), snd (hunter game) + 1)}
+	-- -- | bo == True && dir == North = moveTargets (game {hunter = goHun (hunter game) game (fst (hunter game) - 1, snd (hunter game)), targets = (foldl (\acc var -> ))})
+	-- | otherwise = game
+
 
 {-
     ***  TODO ***
