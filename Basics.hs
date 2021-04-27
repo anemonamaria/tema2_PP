@@ -62,18 +62,13 @@ data Direction = North | South | West | East
     stocarea stării jocului (hunter, target, obstacole, gateways).
 -}
 
-data Gateway = Gateway {
-    position1 :: Position,
-    position2 :: Position
-} deriving (Eq, Ord)
-
 data Game = Game {
 	dim_lines :: Int,
 	dim_columns :: Int,
 	hunter :: Position,
 	targets :: [Target],
 	obstacles :: [Position],
-	gateways :: [Gateway]
+	gateways :: [(Position, Position)]
 
 } deriving (Eq, Ord)
 {-
@@ -121,7 +116,7 @@ findObstacles (x, y) game
 findGateway :: Position -> Game -> Bool
 findGateway (x, y) game
 	| x > (dim_lines game) || y > (dim_columns game) = False
-	| otherwise = any ((x, y) ==) [position1 gateway | gateway <- gateways game]
+	| otherwise = any ((x, y) ==) ([pos1 | (pos1, pos2) <- gateways game] ++ [pos2 | (pos1, pos2) <- gateways game])
 
 obstacle :: Char
 obstacle = '@'
@@ -218,7 +213,7 @@ addTarget behav (x, y) oldgame
     cele două gateway-uri interconectate printr-un canal bidirecțional.
 -}
 addGateway :: (Position, Position) -> Game -> Game
-addGateway  (pos1, pos2) game = game {gateways = (Gateway (fst (pos1, pos2)) (snd (pos1, pos2))) : (Gateway (snd (pos1, pos2)) (fst (pos1, pos2))) : (gateways game)}
+addGateway  (pos1, pos2) game = game {gateways = (pos1, pos2) : (gateways game)}
 
 {-
     *** TODO ***
@@ -245,7 +240,7 @@ addObstacle pos game = game {obstacles = (pos) : (obstacles game)}
 attemptMove :: Position -> Game -> Maybe Position
 attemptMove pos game
 	| findObstacles pos game == True = Nothing
-	-- | findGateway pos game == True = snd filter (pos ==) (fst gateways game)
+ 	| findGateway pos game == True = Just (head (foldl (\acc x -> if pos == fst x then (snd x) : acc else if pos == snd x then (fst x) : acc else acc) [] (gateways game)))
 	| findHunter pos game == False && findTarget pos game == False = Just pos
 
 {-
@@ -270,12 +265,12 @@ go (x, y) game (nx, ny)
 	| findObstacles (x + nx, y + ny) game == True = head [target | target <- targets game, position target == (x, y)]
 	| findTarget (x + nx, y + ny) game == True = head [target | target <- targets game, position target == (x, y)]
 	| findHunter (x + nx, y + ny) game == True = head [target | target <- targets game, position target == (x, y)]
-	| findGateway (x + nx, y + ny) game == True = head [target | target <- targets game, position target == (x, y)] -- MODIFICA ASTA CA NU E OK
+	| findGateway (x + nx, y + ny) game == True =  Target (head (foldl (\acc var -> if (x + nx, y + ny) == fst var then (snd var) : acc else if (x + nx, y + ny) == snd var then (fst var) : acc else acc) [] (gateways game))) (behavior (head [target | target <- targets game, position target == (x, y)]))
 	| length [ target | target <- targets game, position target == (x, y)] == 0 = head [target | target <- targets game, position target == (x, y)]
 	| length [ target | target <- targets game, position target == (x, y)] == 1 = Target (x + nx, y + ny) (behavior (head [target | target <- targets game, position target == (x, y)]))
 
 goEast :: Behavior
-goEast position game = go position game (1, 0)
+goEast position game = go position game (0, 1)
 
 {-
     *** TODO ***
@@ -286,7 +281,7 @@ goEast position game = go position game (1, 0)
     pe loc.
 -}
 goWest :: Behavior
-goWest position game = go position game (-1, 0)
+goWest position game = go position game (0, -1)
 
 
 {-
@@ -298,7 +293,7 @@ goWest position game = go position game (-1, 0)
     pe loc.
 -}
 goNorth :: Behavior
-goNorth position game = go position game (0, -1)
+goNorth position game = go position game (-1, 0)
 
 
 {-
@@ -310,7 +305,7 @@ goNorth position game = go position game (0, -1)
     pe loc.
 -}
 goSouth :: Behavior
-goSouth position game = go position game (0, 1)
+goSouth position game = go position game (1, 0)
 
 {-
     *** TODO ***
@@ -329,8 +324,8 @@ goSouth position game = go position game (0, 1)
 -}
 bounce :: Int -> Behavior
 bounce param position game
-	| param == 1 = goSouth position game
-	| otherwise = goNorth position game
+	| param == 1 = Target ((fst position - 1), snd position) (bounce (-1))
+	| otherwise = Target ((fst position + 1), snd position) (bounce 1)
 
 {-
     *** TODO ***
@@ -340,7 +335,7 @@ bounce param position game
 
 -}
 moveTargets :: Game -> Game
-moveTargets game = undefined
+moveTargets game = game {targets = foldl (\acc x ->  (behavior x) (position x) game : acc) [] (targets game)}
 
 {-
     *** TODO ***
@@ -388,7 +383,9 @@ advanceGameState = undefined
     Verifică dacă mai există Target-uri pe table de joc.
 -}
 areTargetsLeft :: Game -> Bool
-areTargetsLeft = undefined
+areTargetsLeft game
+	| length (targets game) == 0 = False
+	| otherwise = True
 
 {-
     *** BONUS TODO ***
