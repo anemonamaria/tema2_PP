@@ -263,6 +263,9 @@ go :: Position -> Game -> Position -> Target
 go (x, y) game (nx, ny)
 	| x + nx < 0 || x + nx > (dim_lines game) || y + nx < 0 || y + nx > (dim_columns game) = head [target | target <- targets game,
 	 position target == (x, y)]
+	| findObstacles (x + nx, y + ny) game && findGateway (x, y) game = Target (head (foldl (\acc var -> if (x, y) == fst var then (snd var) :
+	 acc else if (x, y) == snd var then (fst var) : acc else acc) [] (gateways game))) (behavior (head [target | target <-
+	  targets game, position target == (x, y)]))
 	| findObstacles (x + nx, y + ny) game == True = head [target | target <- targets game, position target == (x, y)]
 	| findTarget (x + nx, y + ny) game == True = head [target | target <- targets game, position target == (x, y)]
 	| findHunter (x + nx, y + ny) game == True = head [target | target <- targets game, position target == (x, y)]
@@ -326,27 +329,18 @@ goSouth position game = go position game (1, 0)
     1 pentru sud, -1 pentru nord).
 -}
 bounce :: Int -> Behavior
-bounce param position game
-	| param == 1 && findGateway ((fst position + 1), snd position) game && findObstacles (head (foldl (\acc var -> if ((fst position + 1), snd position) ==
-		 fst var then (snd var) : acc else if ((fst position + 1), snd position) == snd var then (fst var) : acc else acc) [] (gateways game))) game =
-			  Target (fst (head (foldl (\acc var -> if ((fst position + 1), snd position) == fst var then (snd var) : acc else
-				   if ((fst position + 1), snd position) == snd var then (fst var) : acc else acc) [] (gateways game))) - 2, snd (head (foldl (\acc var ->
-					   if ((fst position + 1), snd position) == fst var then (snd var) : acc else if ((fst position + 1), snd position) == snd var
-						    then (fst var) : acc else acc) [] (gateways game)))) (bounce (-1))
- 	| param == (-1) && findGateway ((fst position - 1), snd position) game && findObstacles (head (foldl (\acc var -> if ((fst position - 1), snd position)
-		 == fst var then (snd var) : acc else if ((fst position - 1), snd position) == snd var then (fst var) : acc else acc) [] (gateways game))) game =
-			 Target (fst (head (foldl (\acc var -> if ((fst position - 1), snd position) == fst var then (snd var) : acc else if ((fst position - 1),
-				  snd position) == snd var then (fst var) : acc else acc) [] (gateways game))) + 2, snd (head (foldl (\acc var -> if ((fst position - 1),
-					   snd position) == fst var then (snd var) : acc else if ((fst position - 1), snd position) == snd var then (fst var) : acc else acc)
-					   [] (gateways game)))) (bounce 1)
-	| param == 1 && findGateway ((fst position + 1), snd position) game = Target (head (foldl (\acc var -> if ((fst position + 1), snd position) == fst var
-		then (snd var) : acc else if ((fst position + 1), snd position) == snd var then (fst var) : acc else acc) [] (gateways game))) (bounce 1)
-	| param == (-1) && findGateway ((fst position - 1), snd position) game = Target (head (foldl (\acc var -> if ((fst position - 1), snd position) == fst var
-		then (snd var) : acc else if ((fst position - 1), snd position) == snd var then (fst var) : acc else acc) [] (gateways game))) (bounce (-1))
-	| param == 1 && findObstacles ((fst position + 1), snd position) game = Target ((fst position - 1), snd position) (bounce (-1))
-	| param == (-1) && findObstacles ((fst position - 1), snd position) game = Target ((fst position + 1), snd position) (bounce 1)
-	| param == 1 = Target ((fst position + 1), snd position) (bounce 1)
-	| otherwise = Target ((fst position - 1), snd position) (bounce (-1))
+bounce param pos game
+	| param == 1 && findGateway pos game && findObstacles (fst (head (foldl (\acc var -> if (fst pos, snd pos) == fst var then (snd var) :
+	 acc else if (fst pos, snd pos) == snd var then (fst var) : acc else acc) [] (gateways game))) + 1, snd (head (foldl (\acc var ->
+		 if (fst pos, snd pos) == fst var then (snd var) : acc else if (fst pos, snd pos) == snd var then (fst var) : acc else acc)
+		 [] (gateways game)))) game = Target (fst pos - 1, snd pos) (bounce (-1))
+	| param == (-1) && findGateway pos game && findObstacles (fst (head (foldl (\acc var -> if (fst pos, snd pos) == fst var then (snd var) :
+	 acc else if (fst pos, snd pos) == snd var then (fst var) : acc else acc) [] (gateways game))) - 1, snd (head (foldl (\acc var ->
+		 if (fst pos, snd pos) == fst var then (snd var) : acc else if (fst pos, snd pos) == snd var then (fst var) : acc else acc)
+		 [] (gateways game)))) game = Target (fst pos + 1, snd pos) (bounce 1)
+	| param == 1 = if (position (goSouth pos game)) == pos then Target (position (goNorth pos game)) (bounce (-1)) else Target (position (goSouth pos game)) (bounce 1)
+	| param == - 1 = if (position (goNorth pos game)) == pos then Target (position (goSouth pos game)) (bounce 1) else Target (position (goNorth pos game)) (bounce (-1))
+
 
 {-
     *** TODO ***
@@ -401,17 +395,18 @@ goHun (x, y) game (nx, ny)
 	| findObstacles (x + nx, y + ny) game == True = hunter game
 	| findTarget (x + nx, y + ny) game == True = hunter game
 	| findHunter (x + nx, y + ny) game == True = hunter game
-	| findGateway (x + nx, y + ny) game == True =  (head (foldl (\acc var -> if (x + nx, y + ny) == fst var then (snd var) : acc else if (x + nx, y + ny) == snd var then (fst var) : acc else acc) [] (gateways game)))
+	| findGateway (x + nx, y + ny) game == True =  (head (foldl (\acc var -> if (x + nx, y + ny) == fst var
+		then (snd var) : acc else if (x + nx, y + ny) == snd var then (fst var) : acc else acc) [] (gateways game)))
 	| otherwise = (x + nx, y + ny)
 
 advanceGameState :: Direction -> Bool -> Game -> Game
-advanceGameState = undefined -- dir bo game = game
-	-- | bo == False && dir == North = game {hunter = goHun (hunter game) game (fst (hunter game) - 1, snd (hunter game))}
-	-- | bo == False && dir == South = game {hunter = goHun (hunter game) game (fst (hunter game) + 1, snd (hunter game))}
-	-- | bo == False && dir == West = game {hunter = goHun (hunter game) game (fst (hunter game), snd (hunter game) - 1)}
-	-- | bo == False && dir == East = game {hunter = goHun (hunter game) game (fst (hunter game), snd (hunter game) + 1)}
-	-- -- | bo == True && dir == North = moveTargets (game {hunter = goHun (hunter game) game (fst (hunter game) - 1, snd (hunter game)), targets = (foldl (\acc var -> ))})
-	-- | otherwise = game
+advanceGameState dir bo game -- = game
+	| bo == False && dir == North = game {hunter = goHun (hunter game) game (fst (hunter game) - 1, snd (hunter game))}
+	| bo == False && dir == South = game {hunter = goHun (hunter game) game (fst (hunter game) + 1, snd (hunter game))}
+	| bo == False && dir == West = game {hunter = goHun (hunter game) game (fst (hunter game), snd (hunter game) - 1)}
+	| bo == False && dir == East = game {hunter = goHun (hunter game) game (fst (hunter game), snd (hunter game) + 1)}
+	-- | bo == True && dir == North = moveTargets (game {hunter = goHun (hunter game) game (fst (hunter game) - 1, snd (hunter game)), targets = (foldl (\acc var -> ))})
+	| otherwise = game
 
 
 {-
