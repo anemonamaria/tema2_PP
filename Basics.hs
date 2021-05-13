@@ -135,14 +135,14 @@ empty = ' '
 
 printCell :: Game -> Position -> String
 printCell game (x, y)
+	| y == (dim_columns game) && x /= (dim_lines game) && findHunter (x, y) game == True = [hunters] ++ "\n"
 	| y == (dim_columns game) && x /= (dim_lines game) && findObstacles (x, y) game == True = [obstacle] ++ "\n"
 	| y == (dim_columns game) && x /= (dim_lines game) && findTarget (x, y) game == True = [target] ++ "\n"
-	| y == (dim_columns game) && x /= (dim_lines game) && findHunter (x, y) game == True = [hunters] ++ "\n"
 	| y == (dim_columns game) && x /= (dim_lines game) && findGateway (x, y) game == True = [gateway] ++ "\n"
 	| y == (dim_columns game) && x /= (dim_lines game) = [empty] ++ "\n"
+	| findHunter (x, y) game == True = [hunters]
 	| findObstacles (x, y) game == True = [obstacle]
 	| findTarget (x, y) game == True = [target]
-	| findHunter (x, y) game == True = [hunters]
 	| findGateway (x, y) game == True = [gateway]
  	| otherwise = [empty]
 
@@ -393,20 +393,37 @@ goHun :: Position -> Game -> Position -> Position
 goHun (x, y) game (nx, ny)
 	| x + nx < 0 || x + nx > (dim_lines game) || y + nx < 0 || y + nx > (dim_columns game) = hunter game
 	| findObstacles (x + nx, y + ny) game == True = hunter game
-	| findTarget (x + nx, y + ny) game == True = hunter game
+	| findTarget (x + nx, y + ny) game == True = (x + nx, y + ny)
 	| findHunter (x + nx, y + ny) game == True = hunter game
 	| findGateway (x + nx, y + ny) game == True =  (head (foldl (\acc var -> if (x + nx, y + ny) == fst var
 		then (snd var) : acc else if (x + nx, y + ny) == snd var then (fst var) : acc else acc) [] (gateways game)))
 	| otherwise = (x + nx, y + ny)
 
 advanceGameState :: Direction -> Bool -> Game -> Game
-advanceGameState dir bo game -- = game
-	| bo == False && dir == North = game {hunter = goHun (hunter game) game (fst (hunter game) - 1, snd (hunter game))}
-	| bo == False && dir == South = game {hunter = goHun (hunter game) game (fst (hunter game) + 1, snd (hunter game))}
-	| bo == False && dir == West = game {hunter = goHun (hunter game) game (fst (hunter game), snd (hunter game) - 1)}
-	| bo == False && dir == East = game {hunter = goHun (hunter game) game (fst (hunter game), snd (hunter game) + 1)}
-	-- | bo == True && dir == North = moveTargets (game {hunter = goHun (hunter game) game (fst (hunter game) - 1, snd (hunter game)), targets = (foldl (\acc var -> ))})
+advanceGameState dir bo game
+	| bo == False && dir == North = game {hunter = hunNorth}
+	| bo == False && dir == South = game {hunter = hunSouth}
+	| bo == False && dir == West = game {hunter = hunWest}
+	| bo == False && dir == East = game {hunter = hunEast}
+	| bo == True && dir == North = gameNorth {targets = (foldl (\acc var -> if isTargetKilled hunNorth var then acc else var : acc) [] (targets gameNorth))}
+	| bo == True && dir == South = gameSouth {targets = (foldl (\acc var -> if isTargetKilled hunSouth var then acc else var : acc) [] (targets gameSouth))}
+	| bo == True && dir == West  = gameWest  {targets = (foldl (\acc var -> if isTargetKilled hunWest  var then acc else var : acc) [] (targets gameWest))}
+	| bo == True && dir == East  = gameEast  {targets = (foldl (\acc var -> if isTargetKilled hunEast  var then acc else var : acc) [] (targets gameEast))}
 	| otherwise = game
+		where
+			hunNorth = goHun (hunter game) game ((- 1), 0)
+			gameNorth = moveTargets (game {hunter = hunNorth, targets = (foldl (\acc var -> if isTargetKilled hunNorth var
+																					then acc else var : acc) [] (targets game))})
+			hunSouth = goHun (hunter game) game (1, 0)
+			gameSouth = moveTargets (game {hunter = hunSouth, targets = (foldl (\acc var -> if isTargetKilled hunSouth var
+																					then acc else var : acc) [] (targets game))})
+			hunWest = goHun (hunter game) game (0, (- 1))
+			gameWest = moveTargets (game {hunter = hunWest, targets = (foldl (\acc var -> if isTargetKilled hunWest var
+																					then acc else var : acc) [] (targets game))})
+			hunEast = goHun (hunter game) game (0, 1)
+			gameEast = moveTargets (game {hunter = hunEast, targets = (foldl (\acc var -> if isTargetKilled hunEast var
+																					then acc else var : acc) [] (targets game))})
+
 
 
 {-
@@ -440,7 +457,10 @@ instance ProblemState Game Direction where
         Generează succesorii stării curente a jocului.
         Utilizați advanceGameState, cu parametrul Bool ales corespunzător.
     -}
-    successors = undefined
+    successors game = [(North, advanceGameState North False game),
+					   (South, advanceGameState South False game),
+					   (West,  advanceGameState West  False game),
+					   (East,  advanceGameState East  False game)]
 
     {-
         *** TODO ***
@@ -448,7 +468,8 @@ instance ProblemState Game Direction where
         Verifică dacă starea curentă este un în care Hunter-ul poate anihila
         un Target. Puteți alege Target-ul cum doriți, în prezența mai multora.
     -}
-    isGoal  = undefined
+    isGoal game = foldl(\acc var -> if (hEuclidean (hunter game) (position var) <= 2) then acc || True else acc || False) False (targets game)
+
 
     {-
         *** TODO ***
@@ -456,7 +477,8 @@ instance ProblemState Game Direction where
         Euristica euclidiană (vezi hEuclidian mai jos) până la Target-ul ales
         de isGoal.
     -}
-    h = undefined
+    h game = foldl(\acc var -> if (hEuclidean (hunter game) (position var) <= 2) then
+		(if acc > hEuclidean (hunter game) (position var) then hEuclidean (hunter game) (position var) else acc) else acc) 99 (targets game)
 
 {-
      ** NU MODIFICATI **

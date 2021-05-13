@@ -21,7 +21,14 @@ import qualified Data.Set as S
     * copiii, ce vor desemna stările învecinate;
 -}
 
-data Node s a = UndefinedNode
+data Node s a = Mynode {
+	stare		:: s,
+	actiune		:: Maybe a,
+	parinte 	:: Maybe (Node s a),
+	adancime	:: Int,
+	estimare 	:: Float,
+	copii		:: [Node s a]
+}
 
 {-
     *** TODO ***
@@ -29,10 +36,12 @@ data Node s a = UndefinedNode
 -}
 
 instance Eq s => Eq (Node s a) where
-    _ == _ = undefined
+    (Mynode stare1 actiune1 parinte1 adancime1 estimare1 copii1) == (Mynode stare2 actiune2 parinte2 adancime2 estimare2 copii2) =
+		stare1 == stare2
 
 instance Ord s => Ord (Node s a) where
-    _ <= _ = undefined
+    (Mynode stare1 actiune1 parinte1 adancime1 estimare1 copii1) <= (Mynode stare2 actiune2 parinte2 adancime2 estimare2 copii2) =
+		 stare1 <= stare2
 
 {-
     *** TODO ***
@@ -40,22 +49,22 @@ instance Ord s => Ord (Node s a) where
 -}
 
 nodeState :: Node s a -> s
-nodeState = undefined
+nodeState  nod = stare nod
 
 nodeParent :: Node s a -> Maybe (Node s a)
-nodeParent = undefined
+nodeParent nod = parinte nod
 
 nodeDepth :: Node s a -> Int
-nodeDepth = undefined
+nodeDepth nod = adancime nod
 
 nodeChildren :: Node s a -> [Node s a]
-nodeChildren = undefined
+nodeChildren nod = copii nod
 
 nodeHeuristic :: Node s a -> Float
-nodeHeuristic = undefined
+nodeHeuristic nod = estimare nod
 
 nodeAction :: Node s a -> Maybe a
-nodeAction = undefined
+nodeAction nod = actiune nod
 
 {-
     *** TODO ***
@@ -66,8 +75,16 @@ nodeAction = undefined
 -}
 
 createStateSpace :: (ProblemState s a, Eq s) => s -> Node s a
-createStateSpace initialState = undefined -- initialNode
+createStateSpace initialState = Mynode {
+	stare		= initialState,
+	actiune		= Nothing,
+	parinte 	= Nothing,
+	adancime	= 0,
+	estimare 	= h initialState,
+	copii		=  foldl (\acc var ->  [(createStateSpace (snd var))]) [] (successors initialState)
+	}
 
+-- foldl (\acc var -> if isTargetKilled hunEast  var then acc else var : acc) [] (targets gameEast))
 {-
     Funcție ce primește o coadă de priorități și întoarce o pereche
     formată din cheia cu prioritatea minimă și coada din care a fost ștearsă
@@ -96,7 +113,7 @@ suitableSuccs node visited = undefined
     întorcând o nouă frontieră.
     ATENȚIE: Dacă la introducerea unui nod există deja în frontieră un alt nod cu aceeași
     stare, dar cu cost mai mare, nodul nou, cu cost mai mic îl va înlocui pe cel vechi.
-    
+
     Hints:
     1. Vedeți funcția insertWith din pachetul PSQueue.
         (https://hackage.haskell.org/package/PSQueue-1.1.0.1/docs/Data-PSQueue.html#v:insertWith)
@@ -132,7 +149,7 @@ astar' visited frontier = undefined -- goalNode
 
 {-
     *** TODO ***
-  
+
     Primește starea inițială și întoarce starea finală pentru o singură aplicare
     a algoritmului.
     Asigură parametrii inițiali corecți pentru aplicarea funcției astar'.
