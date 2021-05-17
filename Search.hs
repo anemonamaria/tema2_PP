@@ -75,16 +75,28 @@ nodeAction nod = actiune nod
 -}
 
 createStateSpace :: (ProblemState s a, Eq s) => s -> Node s a
-createStateSpace initialState = Mynode {
-	stare		= initialState,
-	actiune		= Nothing,
-	parinte 	= Nothing,
-	adancime	= 0,
-	estimare 	= h initialState,
-	copii		=  foldl (\acc var ->  [(createStateSpace (snd var))]) [] (successors initialState)
-	}
+createStateSpace initialState = root {copii = foldl (\acc var -> acc ++ [(createKidSpace (snd var) (fst var) 0) {parinte = Just root}]) [] (successors initialState)}
+	where
+		root = Mynode {
+			stare		= initialState,
+			actiune		= Nothing,
+			parinte 	= Nothing,
+			adancime	= 0,
+			estimare 	= h initialState,
+			copii		=  []
+		}
+createKidSpace :: (ProblemState s a, Eq s) => s -> a -> Int -> Node s a
+createKidSpace state action depth = nod_curent {copii = foldl(\acc var -> acc ++ [(createKidSpace (snd var) (fst var) (depth + 1)) {parinte = Just nod_curent}]) [] (successors state)}
+	where
+		nod_curent =  Mynode {
+			stare = state,
+			actiune = Just action,
+			parinte = Nothing,
+			adancime = depth + 1,
+			estimare = h state,
+			copii = []
+		}
 
--- foldl (\acc var -> if isTargetKilled hunEast  var then acc else var : acc) [] (targets gameEast))
 {-
     Funcție ce primește o coadă de priorități și întoarce o pereche
     formată din cheia cu prioritatea minimă și coada din care a fost ștearsă
@@ -105,7 +117,7 @@ deleteFindMin pq = (minK, pq')
 -}
 
 suitableSuccs :: (ProblemState s a, Ord s) => Node s a -> (S.Set s) -> [Node s a]
-suitableSuccs node visited = undefined
+suitableSuccs node visited = foldl (\acc var -> if (S.member (stare var) visited) == False then var : acc else acc) [] (nodeChildren node)
 
 {-
     *** TODO ***
@@ -121,7 +133,9 @@ suitableSuccs node visited = undefined
 -}
 
 insertSucc :: (ProblemState s a, Ord s) => (PQ.PSQ (Node s a) Float) -> Node s a -> PQ.PSQ (Node s a) Float
-insertSucc frontier node = undefined -- newFrontier
+insertSucc frontier node = PQ.insertWith (\acc var -> if acc > var then var else acc) node cost frontier
+	where
+		cost = (fromIntegral (adancime node) + (estimare node))
 
 {-
     *** TODO ***
@@ -131,7 +145,7 @@ insertSucc frontier node = undefined -- newFrontier
 -}
 
 insertSuccs :: (ProblemState s a, Ord s) => (Node s a) -> (PQ.PSQ (Node s a) Float) -> (S.Set s) -> (PQ.PSQ (Node s a) Float)
-insertSuccs node frontier visited = undefined --newFrontier
+insertSuccs node frontier visited = foldl (\acc var -> insertSucc acc var) frontier (suitableSuccs node visited)
 
 {-
     *** TODO ***
